@@ -176,7 +176,7 @@ func getProcessExe(pid string) string {
 func getProcessName(exe string) string {
     n := strings.Split(exe, "/")
     name := n[len(n) -1]
-    return strings.Title(name)
+    return name
 }
 
 
