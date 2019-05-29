@@ -141,26 +141,37 @@ func convertIp(ip string) string {
    return out
 }
 
+var iNodeMap map[string] string
 
-func findPid(inode string) string {
-    // Loop through all fd dirs of process on /proc to compare the inode and
-    // get the pid.
-
-    pid := "-"
-
+func ReLoad()  {
+    iNodeMap  = make(map[string] string)
+    socketPathRegex := regexp.MustCompile(`socket:\[(\d*)\]`)
     d, err := filepath.Glob("/proc/[0-9]*/fd/[0-9]*")
     if err != nil {
         fmt.Println(err)
         os.Exit(1)
     }
 
-    re := regexp.MustCompile(inode)
     for _, item := range(d) {
         path, _ := os.Readlink(item)
-        out := re.FindString(path)
-        if len(out) != 0 {
-            pid = strings.Split(item, "/")[2]
+        out := socketPathRegex.FindAllStringSubmatch(path, -1)
+        if len(out) != 1 || len(out[0]) != 2 {
+            continue
         }
+        inode := out[0][1]
+        pid := strings.Split(item, "/")[2]
+        iNodeMap[inode] = pid
+    }
+}
+
+func init() {
+    ReLoad()
+}
+
+func findPid(inode string) string {
+    pid, ok := iNodeMap[inode]
+    if !ok {
+        return "inode not found"
     }
     return pid
 }
@@ -223,6 +234,9 @@ func netstat(t string) []Process {
         fport := hexToDec(fip_port[1])
 
         state := STATE[line_array[3]]
+        if t == "udp" || t == "udp6" {
+            state = "udp"
+        }
         uid := getUser(line_array[7])
         pid := findPid(line_array[9])
         exe := getProcessExe(pid)
